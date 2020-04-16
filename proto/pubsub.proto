@@ -1,0 +1,28 @@
+syntax = "proto3";
+import "google/protobuf/empty.proto";
+message Client {
+	string Id = 2;
+}
+message Channel {
+    string name = 2;
+    string topic = 3;
+}
+message SubscribeResult {
+    string msg = 2;
+    int32 type = 3;
+    int32 loop = 4;
+    float fast = 5;
+    float Volume = 6;
+    bool  Pause =7;
+    int64 timestamp = 8;
+}
+message PulishMessage {
+	Channel topic = 2;
+	SubscribeResult result = 3; 
+}
+
+service PubsubService {
+    rpc Publish (PulishMessage) returns (google.protobuf.Empty);
+    rpc Subscribe (Channel) returns (stream SubscribeResult);
+    rpc GetChanneklList(Channel) returns (stream Channel);
+}
