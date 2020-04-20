@@ -167,7 +167,7 @@ func Run (sdpChan,answerchan chan string,reback chan *pb.PulishMessage){
 														sendchannel.Close()
 														break loop
 														return
-													case <-time.After(5*time.Second):
+													case <-time.After(30*time.Second):
 														log.Println("shot picture lost")
 														return
 														break
