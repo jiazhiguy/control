@@ -117,7 +117,6 @@ func main() {
     //     }),
     // )
     pubSubServer:=NewPubsubService()
-    // log.Printf("%+v",pubSubServer)
     pb.RegisterPubsubServiceServer(s,pubSubServer)
     if err := s.Serve(lis); err != nil {
         log.Fatalf("failed to serve: %v", err)
