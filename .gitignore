@@ -1,3 +1,5 @@
 /client/public
 /client/*.exe
 /client/*.db
+/web/dist
+/web/node_modules
