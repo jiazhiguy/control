@@ -16,11 +16,9 @@ import (
 
     message "grpc-demo/utils/message"
     gin "github.com/gin-gonic/gin"
-   // "github.com/gin-contrib/static"
     pb "grpc-demo/proto"
     "google.golang.org/grpc"
     "google.golang.org/grpc/keepalive" 
-    // "github.com/fvbock/endless"
     "gopkg.in/tylerb/graceful.v1"
     "github.com/robfig/cron"
     "grpc-demo/utils/cron"
@@ -42,14 +40,9 @@ func main() {
     // gin.SetMode(gin.ReleaseMode)
     router := gin.Default()
     router.Use(Cors())
-    //router.Use(static.Serve("/down", static.LocalFile("./tmp",true)))
-    // router.LoadHTMLGlob("dist/*.html")    // 添加入口index.html
-    // router.LoadHTMLFiles("dist/static/*/*")  // 添加资源路径
     router.Static("/static","dist/static")   // 添加资源路径
-   //router.StaticFS("/static", http.Dir("dist/static"))
     router.StaticFS("/down", http.Dir("./tmp"))
     router.StaticFile("/", "./dist/index.html")  //前端接口
-    // router.StaticFS("/file", http.Dir("public"))
     // cmdOut :=make(chan *message.Response,5)
     // cmdIn := make(chan *message.Cmd)
     // go PubishServer(cmdIn,cmdOut)
@@ -238,7 +231,6 @@ func PubishServer(cmdIn chan *message.Cmd,cmdOut chan *message.Response) {
             for {
                 select {
                 case cmdInput := <-cmdIn:{
-                    // log.Printf("+++++%+v++++\n",cmdInput)
                     clientId :=cmdInput.ClientId
                     topic :=cmdInput.Topic
                     optype :=cmdInput.Type
@@ -402,7 +394,6 @@ func  Publish(client pb.PubsubServiceClient,msg  *pb.PulishMessage) error {
 }
 //根据channel内容完成订阅
 func  Subscribe(client pb.PubsubServiceClient,channel *pb.Channel,c chan *pb.SubscribeResult) error {
-    // fmt.Printf("channel:%+v\n",channel)
     stream, err := client.Subscribe(
         context.Background(), channel,
     )
@@ -419,8 +410,6 @@ func  Subscribe(client pb.PubsubServiceClient,channel *pb.Channel,c chan *pb.Sub
                     break
                     return
                 }
-                // log.Println("*****&&&&")
-                // log.Println(err)
             }
             c<-reply
         }
@@ -521,9 +510,7 @@ func parse(c *gin.Context) (*message.Cmd,error){
        
     }
     if category == "3"{
-
         cmd := c.PostForm("cmd")
-        log.Printf("%+s",cmd)
         if cmd ==""{
             return nil,errors.New("paraments of 'cmd' is null")
         }
