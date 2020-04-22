@@ -91,8 +91,9 @@ func main() {
         // log.Printf("^^^%+v",c)
         if err !=nil {
             c.JSON(200,gin.H{
-                "message":err,
-            }) 
+                "message":err.Error(),
+            })
+            return 
         }
         if cmdms == nil {
             c.JSON(200,gin.H{
@@ -514,12 +515,12 @@ func parse(c *gin.Context) (*message.Cmd,error){
         if cmd ==""{
             return nil,errors.New("paraments of 'cmd' is null")
         }
-            ms = message.NewMsg_3(cmd)
+        ms = message.NewMsg_3(cmd)
     }
     if category == "4"{
         offer :=c.PostForm("offer")
         if offer == ""{
-            return nil,errors.New("paraments of 'cmd' is null")
+            return nil,errors.New("paraments of 'offer' is null")
         }
         ms = message.NewMsg_4(offer) 
     }

@@ -10,11 +10,12 @@ import (
     "strings"
     "os"
     "strconv"
-    "image/jpeg"
+    // "image/jpeg"
 
     
     myutil "grpc-demo/utils/my_utils"
-    "github.com/vova616/screenshot"
+    // "github.com/vova616/screenshot"
+    job "grpc-demo/utils/jobs"
     pb "grpc-demo/proto"
     "google.golang.org/grpc"
     "google.golang.org/grpc/keepalive"
@@ -44,8 +45,6 @@ func main() {
     // answerchan := make (chan string)
     // signal := make (chan Unit)
     // reback := make (chan *pb.PulishMessage)
-    
-
     // grpc客户端 完成交互信号的接受和处理
     fmt.Println("**1.消息发布端和接收端设备ID和主题填写一致**")
     fmt.Println("**2.先开启接受端填写参数，再通过发布端发布指令**")
@@ -352,94 +351,67 @@ func playsoundWork(v Unit,upContent Context,c chan *pb.PulishMessage) {
     errorCh <- errors.New("play sound Start...")
 }
 func shotWork(v Unit,c chan *pb.PulishMessage) {
-    var savePath string
-    log.Println("shot")
-    // var cmdHash string
-    // var err error
-    errorCh := make (chan error)
-    newTopic := fmt.Sprintf("%s_%d",v.Topic,v.Timestamp)
-    go func(){
-        for {
-            select {
-            case err :=<-errorCh:
-                // log.Println(err)
-                errString :=errors.Wrap(err, v.Name+"|"+newTopic).Error()
+    go func () {
+        initPath,err := myutil.GetCurrentDirectory()
+        if err!=nil{
+            log.Println(err)
+        }
+        //生成本地文件保存路径
+        // parentPath:=initPath[:strings.LastIndex(initPath, "/")]
+        direct:=initPath+"/public/images"
+        fmt.Println(direct)
+        Exist,_:=myutil.PathExists(direct)
+        if (!Exist){
+            err=os.MkdirAll(direct,os.ModePerm)
+            if err!=nil{
+               fmt.Println(err)
+            }
+        }
+        savepath := direct  
+        savename := "image_"+strconv.FormatInt(time.Now().UnixNano(),10)+".png"
+        newTopic := fmt.Sprintf("%s_%d",v.Topic,v.Timestamp)
+        errorCh := make (chan error)
+        doneCh := make (chan bool)
+        // shotCmd :=""
+        shotCmd := v.Msg
+        // timestamp :=0
+        // if ms ,ok := cmdms.Message.(map[string]interface{}) ;ok{
+        //     shotCmd = ms["shot"].(string)
+        // }
+        go func () {
+            for ms :=range errorCh {
+                log.Println(ms)
+                errString :=errors.Wrap(ms, v.Name+"|"+newTopic).Error()
                 c <-&pb.PulishMessage {
                     Topic: &pb.Channel{Name: v.Name,Topic: newTopic},
                     Result: &pb.SubscribeResult{Msg:errString},
                 }
             }
+        }()
+        go func (){
+            loop:for{
+                    select {
+                        case <-doneCh :
+                            log.Printf("shot end")
+                            break loop
+                            return
+                        case <-time.After(30*time.Second):
+                            log.Println("shot picture lost")
+                            return
+                            break
+                    }
+                }
+
+        }()
+        if shotCmd == ""{
+            return
+        }else{
+            if shotCmd != "screen" {
+                shotCmd = fmt.Sprintf("ffmpeg |_|-i|_|%s|_|-vframes|_|1|_|-y|_|-f|_|image2",shotCmd)
+            }
+            job.Shot(shotCmd,savepath,savename,doneCh,errorCh)
         }
     }()
-    cmdline :=v.Msg
-    if cmdline == ""{
-        errorCh <- errors.New("shot cmd is null")
-        return
-    }
-    // initPath,err:=CurrentFile()
-    initPath,err := myutil.GetCurrentDirectory()
-    if err!=nil{
-        log.Println(err)
-    }
-    cmdline = strings.Replace(cmdline,"|_|"," ",-1)
-    //生成本地文件保存路径
-    // parentPath:=initPath[:strings.LastIndex(initPath, "/")]
-    direct:=initPath+"/public/images"
-    fmt.Println(direct)
-    Exist,_:=myutil.PathExists(direct)
-    if (!Exist){
-        err=os.MkdirAll(direct,os.ModePerm)
-        if err!=nil{
-           fmt.Println(err)
-           errorCh<-err
-        }
-    }
-    if savePath==""{
-        savePath=direct
-    }
-    // endChan:=make(chan bool)
-    savename:="image_"+strconv.FormatInt(time.Now().UnixNano(),10)+".jpg"
-    localfilePath := savePath+"/"+savename
-    done :=make (chan bool)
-    if cmdline=="screenshot" {//截屏
-        log.Println("screenshot")
-        go func(done chan bool){
-            errorCh <- errors.New("shot picture Start...")
-            img, err := screenshot.CaptureScreen()
-            if err != nil {
-               // fmt.Println(err)
-               errorCh<-err
-            }
-            f, err := os.Create(localfilePath)
-            if err != nil {
-                fmt.Println(err)
-            }
-            err = jpeg.Encode(f,img,&jpeg.Options{100})
-            if err != nil {
-                fmt.Println(err)
-            }
-            f.Close()
-            done <- true
-
-        }(done)
-
-    }else{//调用ffmpeg进行截图
-        newcmd :=cmdline +" "+ savePath+"/"+savename
-        go func(newcmd string){
-            log.Println(newcmd)
-            cmd := cmd.New(newcmd)
-            cmd.Done=done
-            errorCh <- errors.New("shot picture Start...")
-
-            err := cmd.Run()
-            if err != nil {
-                fmt.Println(err)
-                errorCh<-err
-            }
-        }(newcmd)
-    }
-    <-done
-    errorCh <-errors.New("shot picture end...")
     //返回给请求端
     // if imgbase64,err :=myutil.ImgToBase64(localfilePath) ;err!=nil{
     //     // picture :=models.Picture{
