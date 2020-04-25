@@ -24,6 +24,7 @@ import (
     "grpc-demo/utils/cmd"
     "github.com/pkg/errors"
     "grpc-demo/utils/webrtc"
+    "flag"
     // "grpc-demo/client/models"
 
 )
@@ -40,22 +41,39 @@ type Map struct {
     Unit map[string]context.CancelFunc
 }
 func main() {
+    var serverIp string
     var clientId,topic string
+    const remoteServerIp = "47.99.78.179:8123"
+    const localServerIp = "127.0.0.1:8123"
     // sdpchan := make (chan string)
     // answerchan := make (chan string)
     // signal := make (chan Unit)
     // reback := make (chan *pb.PulishMessage)
     // grpc客户端 完成交互信号的接受和处理
+    // const serverIp ="localhost:8123"
+    // const serverIp = "47.99.78.179:8123"
+    flag.StringVar(&serverIp, "s", "local", "服务器地址默认为局域网内服务器（外网服务器，参数-s 设置为remote）")
+    flag.Parse()
+    if serverIp == "remote"{
+        serverIp = remoteServerIp
+        fmt.Println("------------------------远程服务器模式------------------------")
+        fmt.Println("")
+     }
+     if serverIp == "local"{
+        serverIp = localServerIp
+        fmt.Println("------------------------本地服务器模式------------------------")
+        fmt.Println("")
+    }
+    
     fmt.Println("**1.消息发布端和接收端设备ID和主题填写一致**")
     fmt.Println("**2.先开启接受端填写参数，再通过发布端发布指令**")
     fmt.Println("**3.发布端地址MP3地址可以是url,也可以是本地MP3,本地文件和接受端放在一起,地址为 ./文件名**")
-    fmt.Print("设备ID:")
+    fmt.Print("自定义设备ID:")
     fmt.Scanln(&clientId)
-    fmt.Print("主题:")
+    fmt.Print("自定义主题:")
     fmt.Scanln(&topic)
 
-    // const serverIp ="localhost:8123"
-    const serverIp = "47.99.78.179:8123"
+
     var cmdCancleMap=Map{
         new(sync.Mutex),
         make(map[string]context.CancelFunc),
