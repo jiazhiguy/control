@@ -375,10 +375,10 @@ func shotWork(v Unit,c chan *pb.PulishMessage) {
         shotCmd := v.Msg
         time_now := time.Now()
         year, month, day := time.Now().Date()
-        fileName := fmt.Sprintf("%s_%s_%s",year,month,day)
+        fileName := fmt.Sprintf("%d_%d_%d",year,month,day)
         subfileName,_:= util.Hash(shotCmd)
         direct:=initPath+"/public/images/"+fileName+"/"+subfileName
-        fmt.Println(direct)
+        // direct:=initPath+"/public/images/"+fileName
         Exist,_:=myutil.PathExists(direct)
         if (!Exist){
             err=os.MkdirAll(direct,os.ModePerm)
