@@ -38,7 +38,7 @@ func initBoltdb() error{
                 if Db !=nil{
                     // log.Println ("Save  ") 
                     err:=Db.Save(&dataPicture)
-                    // log.Println (err)
+                    log.Println (err)
                     var pictures []Picture
                     Db.All(&pictures)
                     log.Printf ("%d",len(pictures))    
