@@ -22,6 +22,7 @@ import (
     "gopkg.in/tylerb/graceful.v1"
     "github.com/robfig/cron"
     "grpc-demo/utils/cron"
+    "grpc-demo/utils"
     // "github.com/zserge/webview"
  
 )
@@ -203,7 +204,6 @@ func PubishServer(cmdIn chan *message.Cmd,cmdOut chan *message.Response) {
                     // fmt.Println(v)
                     err := Subscribe(client,v,response)
                     if err != nil{
-                        log.Println("ssss")
                         reconnect <- true
                         break loop
                         

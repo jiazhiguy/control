@@ -109,8 +109,9 @@ func Run (sdpChan,answerchan chan string,reback chan *pb.PulishMessage){
 								           fmt.Println(err)
 								        }
 								    }
+								    time_now := time.Now()
 									savepath := direct	
-								    savename := "image_"+strconv.FormatInt(time.Now().UnixNano(),10)+".png"
+								    savename := "image_"+strconv.FormatInt(time_now.UnixNano(),10)+".png"
 									errorCh := make (chan error)
 									doneCh := make (chan bool)
 									shotCmd :=""
@@ -144,7 +145,7 @@ func Run (sdpChan,answerchan chan string,reback chan *pb.PulishMessage){
 														save := models.Picture{
 															Name:shotCmd,
 															Data:imageBytes,
-															CreatedAt: time.Now(),
+															CreatedAt: time_now,
 														}
 														models.Datachan <- save
 														//发送缩略图大小

@@ -10,11 +10,11 @@ import (
     "strings"
     "os"
     "strconv"
-    // "image/jpeg"
+    "image/png"
+    // "encoding/base64"
+    "bytes"
 
-    
     myutil "grpc-demo/utils/my_utils"
-    // "github.com/vova616/screenshot"
     job "grpc-demo/utils/jobs"
     pb "grpc-demo/proto"
     "google.golang.org/grpc"
@@ -24,7 +24,7 @@ import (
     "grpc-demo/utils/cmd"
     "github.com/pkg/errors"
     "grpc-demo/utils/webrtc"
-    // "grpc-demo/client/models"
+    "grpc-demo/client/models"
 
 )
 type Context struct {
@@ -277,7 +277,6 @@ func cmdWork(v Unit,cmdCancleMap Map,c chan *pb.PulishMessage) {
     go func(){
         stop :=v.Pause
         if stop {
-            log.Printf("%+v",cmdCancleMap)
             cmdCancleMap.Mu.Lock()
 
             cancel, ok := cmdCancleMap.Unit[cmdHash]
@@ -334,12 +333,10 @@ func playsoundWork(v Unit,upContent Context,c chan *pb.PulishMessage) {
         PlaySound(_ctx,path,option,errorCh)
         upContent=Context{_ctx,_cancel}
     }
-    log.Println("^^^",newTopic)
     go func(){
         for {
             select {
             case err :=<-errorCh:
-                log.Println(">>>",newTopic)
                 errString :=errors.Wrap(err, v.Name+"|"+newTopic).Error()
                 c <-&pb.PulishMessage {
                     Topic: &pb.Channel{Name: v.Name,Topic: newTopic},
@@ -358,7 +355,12 @@ func shotWork(v Unit,c chan *pb.PulishMessage) {
         }
         //生成本地文件保存路径
         // parentPath:=initPath[:strings.LastIndex(initPath, "/")]
-        direct:=initPath+"/public/images"
+        shotCmd := v.Msg
+        time_now := time.Now()
+        year, month, day := time.Now().Date()
+        fileName := fmt.Sprintf("%s_%s_%s",year,month,day)
+        subfileName,_:= util.Hash(shotCmd)
+        direct:=initPath+"/public/images/"+fileName+"/"+subfileName
         fmt.Println(direct)
         Exist,_:=myutil.PathExists(direct)
         if (!Exist){
@@ -368,16 +370,11 @@ func shotWork(v Unit,c chan *pb.PulishMessage) {
             }
         }
         savepath := direct  
-        savename := "image_"+strconv.FormatInt(time.Now().UnixNano(),10)+".png"
+        savename := "image_"+strconv.FormatInt(time_now.UnixNano(),10)+".png"
         newTopic := fmt.Sprintf("%s_%d",v.Topic,v.Timestamp)
         errorCh := make (chan error)
         doneCh := make (chan bool)
-        // shotCmd :=""
-        shotCmd := v.Msg
-        // timestamp :=0
-        // if ms ,ok := cmdms.Message.(map[string]interface{}) ;ok{
-        //     shotCmd = ms["shot"].(string)
-        // }
+        
         go func () {
             for ms :=range errorCh {
                 log.Println(ms)
@@ -393,6 +390,29 @@ func shotWork(v Unit,c chan *pb.PulishMessage) {
                     select {
                         case <-doneCh :
                             log.Printf("shot end")
+                            imageBytes ,err:= myutil.FindFile(savepath,savename)
+                            if err != nil {
+                                log.Println(err)
+                                return
+                            }
+                            //缩略图保存到数据库
+                            img_thumbnail := myutil.ImgResize(imageBytes)
+                            buf := new(bytes.Buffer)
+                            err = png.Encode(buf, img_thumbnail)
+                            if err !=nil{
+                                return
+                            }
+                            img_thumbnail_byte := buf.Bytes()
+                            imageBytes = img_thumbnail_byte
+                            save := models.Picture{
+                                Name:shotCmd,
+                                Data:imageBytes,
+                                CreatedAt: time_now,
+                            }
+                            models.Datachan <- save
+                            // //返回给客户端
+                            // sourcestring := base64.StdEncoding.EncodeToString(img_thumbnail_byte)
+                            // errorCh <- errors.New(sourcestring)
                             break loop
                             return
                         case <-time.After(30*time.Second):
@@ -446,14 +466,9 @@ func sdpwork (v *Unit,sdpchan,answerchan chan string,c chan *pb.PulishMessage){
     newTopic := fmt.Sprintf("%s_%d",v.Topic,v.Timestamp)
     loop:
         for {
-            
-            log.Println("~~~~~***~~",newTopic)
             select{
             case answer := <-answerchan:
-                // newTopic := fmt.Sprintf("%s_%d",v.Topic,v.Timestamp)
-                log.Println("~~~~~~~~~~",newTopic)
                 errString :=errors.Wrap(errors.New(answer), v.Name+"|"+newTopic).Error()
-                // log.Printf("%s",errString)
                 c <-&pb.PulishMessage {
                     Topic: &pb.Channel{Name: v.Name,Topic: newTopic},
                     Result: &pb.SubscribeResult{Msg:errString},
