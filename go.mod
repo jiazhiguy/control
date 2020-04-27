@@ -7,17 +7,18 @@ require (
 	github.com/faiface/beep v1.0.2
 	github.com/fvbock/endless v0.0.0-20170109170031-447134032cb6 // indirect
 	github.com/gin-contrib/static v0.0.0-20191128031702-f81c604d8ac2 // indirect
+	github.com/gin-gonic/gin v1.5.0
 	github.com/golang/protobuf v1.3.4
 	github.com/nfnt/resize v0.0.0-20180221191011-83c6a9932646
 	github.com/pion/webrtc/v2 v2.2.3
 	github.com/pkg/errors v0.9.1
-	github.com/robfig/cron v1.2.0 // indirect
+	github.com/robfig/cron v1.2.0
 	github.com/robfig/cron/v3 v3.0.1 // indirect
 	github.com/vova616/screenshot v0.0.0-20191005130345-da36db2560ab
 	github.com/zserge/webview v0.0.0-20200307090906-10ddbc570a0b
 	golang.org/x/lint v0.0.0-20190313153728-d0100b6bd8b3 // indirect
 	golang.org/x/tools v0.0.0-20190524140312-2c0ae7006135 // indirect
 	google.golang.org/grpc v1.28.0
-	gopkg.in/tylerb/graceful.v1 v1.2.15 // indirect
+	gopkg.in/tylerb/graceful.v1 v1.2.15
 	honnef.co/go/tools v0.0.0-20190523083050-ea95bdfd59fc // indirect
 )

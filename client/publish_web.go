@@ -13,6 +13,7 @@ import (
     "syscall"
     "os"
     "errors"
+    "flag"
 
     message "grpc-demo/utils/message"
     gin "github.com/gin-gonic/gin"
@@ -30,7 +31,23 @@ import (
 //ffmpeg |_|-i|_|rtsp://admin:admin123@192.168.2.241/h264/ch1/main/av_stream|_|-vframes|_|1|_|-y|_|-f|_|image2
 //ffmpeg|_|-re|_|-i|_|rtsp://admin:admin123@192.168.2.241/h264/ch1/main/av_stream|_|-c|_|copy|_|-f|_|flv|_|rtmp://47.99.78.179:1935/live/movie
 var cronHub *cron.Cron
+var serverIp string
 func main() {
+    flag.StringVar(&serverIp, "s", "local", "服务器地址默认为局域网内服务器（外网服务器，参数-s 设置为remote）")
+    flag.Parse()
+    const remoteServerIp = "47.99.78.179:8123"
+    const localServerIp = "127.0.0.1:8123"
+    if serverIp == "remote"{
+        serverIp = remoteServerIp
+        fmt.Println("------------------------远程服务器模式------------------------")
+        fmt.Println("")
+     }
+     if serverIp == "local"{
+        serverIp = localServerIp
+        fmt.Println("------------------------本地服务器模式------------------------")
+        fmt.Println("")
+    }
+
     const httpPort = ":9090"
     cronHub = cron.New()
     cronHub.Start() 
@@ -169,12 +186,13 @@ func main() {
     // router.Run(":9090")
 }
 func PubishServer(cmdIn chan *message.Cmd,cmdOut chan *message.Response) {
+
     fmt.Println("**1.消息发布端和接收端设备ID和主题填写一致**")
     fmt.Println("**2.先开启接受端填写参数，再通过发布端发布指令**")
     fmt.Println("**3.发布端地址MP3地址可以是url,也可以是本地MP3,本地文件和接受端放在一起,地址为 ./文件名**")
     // const serverIp ="localhost:8123"
     //********************connect*********************
-    const serverIp ="47.99.78.179:8123"
+    // const serverIp ="47.99.78.179:8123"
     // cmdline := "ffmpeg -re -i D:/21.mp4 -c copy -f flv rtmp://localhost:1935/live/movie"
     var kacp = keepalive.ClientParameters{
         Time:                10 * time.Second, // send pings every 10 seconds if there is no activity
