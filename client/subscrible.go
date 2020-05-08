@@ -40,7 +40,7 @@ type Map struct {
     Unit map[string]context.CancelFunc
 }
 func main() {
-    var serverIp string
+    var serverIp ,randomTag string
     var clientId,topic string
     const remoteServerIp = "47.99.78.179:8123"
     const localServerIp = "127.0.0.1:8123"
@@ -52,13 +52,14 @@ func main() {
     // const serverIp ="localhost:8123"
     // const serverIp = "47.99.78.179:8123"
     flag.StringVar(&serverIp, "s", "local", "服务器地址默认为局域网内服务器（外网服务器，参数-s 设置为remote）")
+    flag.StringVar(&randomTag, "t", "random", "id 和topic随机生成（自定义，参数-t 设置为custom）")
     flag.Parse()
     if serverIp == "remote"{
         serverIp = remoteServerIp
         fmt.Println("------------------------远程服务器模式------------------------")
         fmt.Println("")
      }
-     if serverIp == "local"{
+    if serverIp == "local"{
         serverIp = localServerIp
         fmt.Println("------------------------本地服务器模式------------------------")
         fmt.Println("")
@@ -67,11 +68,19 @@ func main() {
     fmt.Println("**1.消息发布端和接收端设备ID和主题填写一致**")
     fmt.Println("**2.先开启接受端填写参数，再通过发布端发布指令**")
     fmt.Println("**3.发布端地址MP3地址可以是url,也可以是本地MP3,本地文件和接受端放在一起,地址为 ./文件名**")
-    fmt.Print("自定义设备ID:")
-    fmt.Scanln(&clientId)
-    fmt.Print("自定义主题:")
-    fmt.Scanln(&topic)
-
+    if randomTag == "custom"{
+        fmt.Print("自定义设备ID:")
+        fmt.Scanln(&clientId)
+        fmt.Print("自定义主题:")
+        fmt.Scanln(&topic)
+    }else{
+        salt := "random"
+        stamp :=int(time.Now().Unix())
+        randomHash,_ :=util.Hash(strconv.Itoa(stamp)+salt)
+        fmt.Printf(randomHash)
+        clientId = randomHash[0:6]
+        topic = randomHash[len(randomHash)-6:]
+    }
 
     var cmdCancleMap=Map{
         new(sync.Mutex),

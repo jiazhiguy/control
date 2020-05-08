@@ -1,5 +1,7 @@
 module grpc-demo
 
+go 1.14
+
 require (
 	github.com/asdine/storm/v3 v3.1.1
 	github.com/boltdb/bolt v1.3.1
