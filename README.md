@@ -15,3 +15,4 @@
 3.开启本地视频：显示本机摄像头画面
 
 4.开启远程视频：输入局域网摄像头rtsp地址，可以链接到远程摄像头
+![image text](https://github.com/jiazhiguy/control/blob/master/frame.png
