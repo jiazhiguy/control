@@ -14,6 +14,7 @@ import (
     // "encoding/base64"
     "bytes"
     "flag"
+    "os/exec"
 
     myutil "grpc-demo/utils/my_utils"
     job "grpc-demo/utils/jobs"
@@ -23,9 +24,12 @@ import (
     util "grpc-demo/utils"
     "grpc-demo/utils/play"
     "grpc-demo/utils/cmd"
+    "grpc-demo/utils/ips"
     "github.com/pkg/errors"
     "grpc-demo/utils/webrtc"
     "grpc-demo/client/models"
+    qrcode "github.com/skip2/go-qrcode"
+
 )
 type Context struct {
     Ctx  context.Context
@@ -54,20 +58,10 @@ func main() {
     flag.StringVar(&serverIp, "s", "local", "服务器地址默认为局域网内服务器（外网服务器，参数-s 设置为remote）")
     flag.StringVar(&randomTag, "t", "random", "id 和topic随机生成（自定义，参数-t 设置为custom）")
     flag.Parse()
-    if serverIp == "remote"{
-        serverIp = remoteServerIp
-        fmt.Println("------------------------远程服务器模式------------------------")
-        fmt.Println("")
-     }
-    if serverIp == "local"{
-        serverIp = localServerIp
-        fmt.Println("------------------------本地服务器模式------------------------")
-        fmt.Println("")
-    }
-    
     fmt.Println("**1.消息发布端和接收端设备ID和主题填写一致**")
     fmt.Println("**2.先开启接受端填写参数，再通过发布端发布指令**")
     fmt.Println("**3.发布端地址MP3地址可以是url,也可以是本地MP3,本地文件和接受端放在一起,地址为 ./文件名**")
+  
     if randomTag == "custom"{
         fmt.Print("自定义设备ID:")
         fmt.Scanln(&clientId)
@@ -81,7 +75,24 @@ func main() {
         clientId = randomHash[0:6]
         topic = randomHash[len(randomHash)-6:]
     }
+    if serverIp == "remote"{
+        serverIp = remoteServerIp
+        fmt.Println("------------------------远程服务器模式------------------------")
+        fmt.Println("")
+        RenderStringQr("http://47.99.78.179:9090")
+     }
+    if serverIp == "local"{
+        serverIp = localServerIp
+        fmt.Println("------------------------本地服务器模式------------------------")
+        fmt.Println("")
+        ipAdrress := ips.GetIPs()
+        if ipAdrress[0] !=""{
 
+        }
+        RenderStringQr("http://"+ipAdrress[0]+":9090")
+
+    }
+    
     var cmdCancleMap=Map{
         new(sync.Mutex),
         make(map[string]context.CancelFunc),
@@ -106,6 +117,7 @@ func main() {
         log.Println("-----Start grpc Client-----")
         conn, err := grpc.Dial(serverIp, grpc.WithInsecure(), grpc.WithKeepaliveParams(kacp))
         // conn, err := grpc.Dial(serverIp, grpc.WithInsecure())
+
         if err != nil {
              log.Println(err)
              defer conn.Close()
@@ -114,21 +126,6 @@ func main() {
         }
         
         client := pb.NewPubsubServiceClient(conn)
-
-        // fmt.Print("用户名:")
-        // fmt.Scanln(&usernanme)
-        // fmt.Print("登录密码:")
-        // fmt.Scanln(&password)
-        // fmt.Print("设备ID:")
-        // fmt.Scanln(&clientId)
-        // fmt.Print("主题:")
-        // fmt.Scanln(&topic)
-        // if clientId =="" {
-        //     clientId = "jz101"
-        // }
-        // if topic ==""{
-        //     topic= "playsound"
-        // }
         fmt.Println("===============消息指令接受端==============="+"[设备ID:"+clientId+" 主题:"+topic+"]")
      
         upContent :=Context{}
@@ -503,4 +500,32 @@ func sdpwork (v *Unit,sdpchan,answerchan chan string,c chan *pb.PulishMessage){
             }
         }
    
+}
+func write2Stdout(content string, level qrcode.RecoveryLevel, size int) error {
+    var q *qrcode.QRCode
+    q, err := qrcode.New(content, level)
+    if err != nil {
+        return err
+    }
+    qrstring := q.ToSmallString (false)
+    fmt.Println(qrstring)
+    // if _,err :=os.Stdout.Write([]byte(qrstring));err!=nil{
+    //     return err
+    // }
+    return nil
+}
+func RenderString(s string) {
+    q, err := qrcode.New(s, qrcode.Medium)
+    if err != nil {
+        panic(err)
+    }
+    fmt.Println(q.ToSmallString(false))
+}
+func RenderStringQr(s string) {
+    err := qrcode.WriteFile(s, qrcode.Medium, 200, "qr.png")
+    if err != nil {
+        panic(err)
+    }
+    cmd:=exec.Command("rundll32.exe", "url.dll,FileProtocolHandler", "qr.png")
+    cmd.Start()
 }
