@@ -113,7 +113,10 @@ func main() {
         answerchan := make (chan string)
         signal := make (chan Unit)
         reback := make (chan *pb.PulishMessage)
-        go webrtcserver.Run(sdpchan,answerchan,reback)//开启webrtc服务端
+        //开启webrtc服务端,通过webrtc同样完成指令操作
+        go webrtcserver.Run(sdpchan,answerchan,reback)
+
+
         log.Println("-----Start grpc Client-----")
         conn, err := grpc.Dial(serverIp, grpc.WithInsecure(), grpc.WithKeepaliveParams(kacp))
         // conn, err := grpc.Dial(serverIp, grpc.WithInsecure())
