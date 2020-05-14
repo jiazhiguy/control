@@ -14,7 +14,10 @@ import (
     "os"
     "errors"
     "flag"
+    "encoding/json"
 
+    "github.com/pion/webrtc/v2"
+    sdp "grpc-demo/utils/signal"
     message "grpc-demo/utils/message"
     gin "github.com/gin-gonic/gin"
     pb "grpc-demo/proto"
@@ -32,11 +35,15 @@ import (
 //ffmpeg|_|-re|_|-i|_|rtsp://admin:admin123@192.168.2.241/h264/ch1/main/av_stream|_|-c|_|copy|_|-f|_|flv|_|rtmp://47.99.78.179:1935/live/movie
 var cronHub *cron.Cron
 var serverIp string
+var clientId,topic string
 func main() {
-    flag.StringVar(&serverIp, "s", "local", "服务器地址默认为局域网内服务器（外网服务器，参数-s 设置为remote）")
-    flag.Parse()
+    const httpPort = ":9090"
     const remoteServerIp = "47.99.78.179:8123"
     const localServerIp = "127.0.0.1:8123"
+
+    flag.StringVar(&serverIp, "s", "local", "服务器地址默认为局域网内服务器（外网服务器，参数-s 设置为remote）")
+    flag.Parse()
+
     if serverIp == "remote"{
         serverIp = remoteServerIp
         fmt.Println("------------------------远程服务器模式------------------------")
@@ -47,7 +54,15 @@ func main() {
         fmt.Println("------------------------本地服务器模式------------------------")
         fmt.Println("")
     }
-    const httpPort = ":9090"
+    
+    fmt.Print("自定义设备ID:")
+    fmt.Scanln(&clientId)
+    fmt.Print("自定义主题:")
+    fmt.Scanln(&topic)
+    go func(){
+        webrtcConn(clientId,topic,"4","http://"+strings.Split(serverIp,":")[0]+httpPort+"/message")
+
+    }()
     cronHub = cron.New()
     cronHub.Start() 
     // go func () {
@@ -83,7 +98,7 @@ func main() {
         }
         log.Printf("cmdms2:%+v\n",cmdms)
         err = cronHub.AddFunc(tip,func(){
-            cronutil.HttpPost(cmdms,httpPort)
+            cronutil.HttpPost(cmdms,"http://"+strings.Split(serverIp,":")[0]+httpPort+"/message")
         })
         if err != nil { 
             log.Println(err)           
@@ -548,4 +563,63 @@ func parse(c *gin.Context) (*message.Cmd,error){
         Message:ms,
     }
     return cmdms,nil
+}
+func webrtcConn(clientId,topic,category ,httpPort string){
+    peerConnection, err := webrtc.NewPeerConnection(webrtc.Configuration{
+        ICEServers: []webrtc.ICEServer{
+            {
+                // URLs: []string{"stun:stun.l.google.com:19302"},
+                URLs: []string{"stun:47.99.78.179:3478"},
+            },
+        },
+
+    })
+    if err != nil {
+        panic(err)
+    }
+    log.Println(peerConnection.ConnectionState())
+    // Create an offer to send to the browser
+    offer, err := peerConnection.CreateOffer(nil)
+    if err != nil {
+        panic(err)
+    }
+    // Sets the LocalDescription, and starts our UDP listeners
+    err = peerConnection.SetLocalDescription(offer)
+    if err != nil {
+        panic(err)
+    }
+    offerBase64 ,err:=sdp.Encode(offer) 
+    if err != nil {
+        panic(err)
+    }
+    // Exchange the offer for the answer
+    ms := message.NewMsg_4(offerBase64)
+    cmdms := &message.Cmd{
+        ClientId:clientId,
+        Topic:topic,
+        Type:category,
+        Message:ms,
+    }
+    info ,_:= cronutil.HttpPost(cmdms,httpPort)
+    type message struct{
+        Message string
+    }
+    infoParse := message{}
+    err = json.Unmarshal([]byte(info), &infoParse)
+    if err!=nil{
+        fmt.Println(err)
+    }
+    answerBase64 :=strings.Split(infoParse.Message,":")[1]
+    //除去空白,解析出的字符串前面多了个空白？
+    answerBase64 =strings.TrimSpace(answerBase64)
+    answerJson := webrtc.SessionDescription{}
+    sdp.Decode(answerBase64,&answerJson)
+    // Apply the answer as the remote description
+    err = peerConnection.SetRemoteDescription(answerJson)
+    if err != nil {
+        panic(err)
+    }
+
+    // Block forever
+    // select {}
 }

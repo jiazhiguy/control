@@ -12,7 +12,7 @@ import (
 	"bytes"
 
 	"github.com/pion/webrtc/v2"
-	"grpc-demo/utils/internal/signal"
+	"grpc-demo/utils/signal"
 	 pb "grpc-demo/proto"
 	 message "grpc-demo/utils/message"
 	 job "grpc-demo/utils/jobs"
@@ -282,7 +282,7 @@ func Run (sdpChan,answerchan chan string,reback chan *pb.PulishMessage){
 			log.Println(peerConnection.GetReceivers())
 			// Set the remote SessionDescription
 			err = peerConnection.SetRemoteDescription(recvOnlyOffer)
-			log.Printf("sdp offer%+v",recvOnlyOffer)
+			// log.Printf("sdp offer%+v",recvOnlyOffer)
 			if err != nil {
 				log.Println(err)
 				// panic(err)
@@ -298,12 +298,9 @@ func Run (sdpChan,answerchan chan string,reback chan *pb.PulishMessage){
 			err = peerConnection.SetLocalDescription(answer)
 			if err != nil {
 				log.Println(err)
-				// panic(err)
 			}
-			// peerConnection.SetRemoteDescription(recvOnlyOffer)
 			answer_encode ,_ := signal.Encode(answer)
-			log.Printf("sdp answer%+v",recvOnlyOffer)
-			// log.Println(answer_encode)
+           // Apply the answer as the remote description
 			answerchan <- answer_encode
 			// go func(){
 			// 	conected := make(chan bool, 10)

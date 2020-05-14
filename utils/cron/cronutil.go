@@ -38,9 +38,15 @@ func HttpPost(cmd *message.Cmd,host string) (string,error){
         fmt.Printf("%+v",m)
         sendParament = fmt.Sprintf("id=%s&&topic=%s&&type=%s&&cmd=%s",clientId,topic,category,m.ShotCmd)
         fmt.Println(sendParament)
+  
+    case "4":
+        fmt.Println("%^%^%:4")
+        m,_ := ms.(message.Msg_4)
+        fmt.Printf("%+v\n",m)
+        sendParament = fmt.Sprintf("id=%s&&topic=%s&&type=%s&&offer=%s",clientId,topic,category,m.Offer)
+        fmt.Println("sendParament:",sendParament)
     }
-	newhost := "http://localhost"+host+"/message"
-    resp, err := http.Post(newhost,
+    resp, err := http.Post(host,
         "application/x-www-form-urlencoded",
         strings.NewReader(sendParament))
     if err != nil {
@@ -54,7 +60,7 @@ func HttpPost(cmd *message.Cmd,host string) (string,error){
         return "",err
         // handle error
     }
-    fmt.Println(string(body))
+    fmt.Println("----",string(body))
     return string(body),nil
     
 }
