@@ -75,10 +75,11 @@ func Run (sdpChan,answerchan chan string,reback chan *pb.PulishMessage){
 						log.Printf("%+v",cmdms)
 						switch cmdms.Type{
 							case "1":
+								var loop =1
 								log.Println("CASE 1")
 								fmt.Printf("%T", cmdms.Message)
 								if ms ,ok := cmdms.Message.(map[string]interface{}) ;ok{
-									loop := int(ms["loop"].(float64))
+									loop = int(ms["loop"].(float64))
 									path := ms["path"].(string)
 									errorCh := make (chan error)
 									go func () {
@@ -150,6 +151,7 @@ func Run (sdpChan,answerchan chan string,reback chan *pb.PulishMessage){
 														models.Datachan <- save
 														//发送缩略图大小
 														fileSize := len(imageBytes)
+														log.Println("Create shot channek")
 														sendchannel ,_:= peerConnection.CreateDataChannel("shot",&webrtc.DataChannelInit{})
 														data ,_:= signal.Encode(message.FileMeta{FileSize:fileSize})
 														sendchannel.SendText(data)
