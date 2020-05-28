@@ -90,9 +90,7 @@ func main() {
 
         }
         RenderStringQr("http://"+ipAdrress[0]+":9090")
-
     }
-    
     var cmdCancleMap=Map{
         new(sync.Mutex),
         make(map[string]context.CancelFunc),
@@ -113,8 +111,9 @@ func main() {
         answerchan := make (chan string)
         signal := make (chan Unit)
         reback := make (chan *pb.PulishMessage)
-        go webrtcserver.Run(sdpchan,answerchan,reback)//开启webrtc服务端
-        log.Println("-----Start grpc Client-----")
+        //开启webrtc服务端,通过webrtc同样完成指令操作
+        go webrtcserver.Run(sdpchan,answerchan,reback)
+        log.Println("-----Start Grpc Client-----")
         conn, err := grpc.Dial(serverIp, grpc.WithInsecure(), grpc.WithKeepaliveParams(kacp))
         // conn, err := grpc.Dial(serverIp, grpc.WithInsecure())
 
@@ -433,9 +432,16 @@ func shotWork(v Unit,c chan *pb.PulishMessage) {
                                 CreatedAt: time_now,
                             }
                             models.Datachan <- save
-                            // //返回给客户端
-                            // sourcestring := base64.StdEncoding.EncodeToString(img_thumbnail_byte)
-                            // errorCh <- errors.New(sourcestring)
+                            // url :="https://yuexi.boyuntong.com/api/land/addShot?thumb=1"
+                            // params := map[string]string{
+                            //     //fmt.Sprintf("%d",17)不能直接使用"17",为什么
+                            //     "channel_id":fmt.Sprintf("%d",17),
+                            // }
+                            // rsp ,_ :=job.UploadFile(url,params,"upFile","11.png",imageBytes)
+                            // fmt.Println(string(rsp))
+                            // 返回给客户端
+                            // sourcestring := base64.StdEncoding.EncodeToString(savename)
+                            errorCh <- errors.New(fileName+"/"+subfileName+"/"+savename)
                             break loop
                             return
                         case <-time.After(30*time.Second):
@@ -451,6 +457,7 @@ func shotWork(v Unit,c chan *pb.PulishMessage) {
         }else{
             if shotCmd != "screen" {
                 shotCmd = fmt.Sprintf("ffmpeg |_|-i|_|%s|_|-vframes|_|1|_|-y|_|-f|_|image2",shotCmd)
+                // shotCmd = fmt.Sprintf("ffmpeg |_|-rtsp_transport|_|tcp|_|-i|_|%s|_|-b:v|_|2000k|_|-bufsize|_|2000k|_|-vframes|_|1|_|-y|_|-f|_|image2",shotCmd)
             }
             job.Shot(shotCmd,savepath,savename,doneCh,errorCh)
         }

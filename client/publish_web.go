@@ -14,7 +14,13 @@ import (
     "os"
     "errors"
     "flag"
+    "encoding/json"
+    "image/png"
+    "bytes"
+    // "OS/exec"
 
+    "github.com/pion/webrtc/v2"
+    s "grpc-demo/utils/signal"
     message "grpc-demo/utils/message"
     gin "github.com/gin-gonic/gin"
     pb "grpc-demo/proto"
@@ -32,22 +38,34 @@ import (
 //ffmpeg|_|-re|_|-i|_|rtsp://admin:admin123@192.168.2.241/h264/ch1/main/av_stream|_|-c|_|copy|_|-f|_|flv|_|rtmp://47.99.78.179:1935/live/movie
 var cronHub *cron.Cron
 var serverIp string
+var clientId,topic string
+
 func main() {
-    flag.StringVar(&serverIp, "s", "local", "服务器地址默认为局域网内服务器（外网服务器，参数-s 设置为remote）")
-    flag.Parse()
+    const httpPort = ":9090"
     const remoteServerIp = "47.99.78.179:8123"
     const localServerIp = "127.0.0.1:8123"
+
+    flag.StringVar(&serverIp, "s", "local", "服务器地址默认为局域网内服务器（外网服务器，参数-s 设置为remote）")
+    flag.Parse()
+
     if serverIp == "remote"{
         serverIp = remoteServerIp
         fmt.Println("------------------------远程服务器模式------------------------")
-        fmt.Println("")
+        // fmt.Println("")
      }
      if serverIp == "local"{
         serverIp = localServerIp
         fmt.Println("------------------------本地服务器模式------------------------")
-        fmt.Println("")
+        // fmt.Println("")
     }
-    const httpPort = ":9090"
+    
+    fmt.Print("目标设备ID:")
+    fmt.Scanln(&clientId)
+    fmt.Print("目标主题:")
+    fmt.Scanln(&topic)
+    go func(){
+        webrtcConn(clientId,topic,"4","http://"+strings.Split(serverIp,":")[0]+httpPort+"/message")
+    }()
     cronHub = cron.New()
     cronHub.Start() 
     // go func () {
@@ -73,7 +91,7 @@ func main() {
         }
         log.Printf("tip:%s",tip)
         cmdms,err :=parse(c)
-        log.Printf("cmdms1:%+v\n",cmdms)
+        // log.Printf("cmdms1:%+v\n",cmdms)
         if err != nil{
             c.JSON(200,gin.H{
                 "message":err.Error(),
@@ -83,7 +101,7 @@ func main() {
         }
         log.Printf("cmdms2:%+v\n",cmdms)
         err = cronHub.AddFunc(tip,func(){
-            cronutil.HttpPost(cmdms,httpPort)
+            cronutil.HttpPost(cmdms,"http://"+strings.Split(serverIp,":")[0]+httpPort+"/message")
         })
         if err != nil { 
             log.Println(err)           
@@ -98,8 +116,8 @@ func main() {
         return
     })
     router.POST("/message", func(c *gin.Context) {
-        log.Println("*******HANDEL.message*******")
-        log.Println(" ")
+        // log.Println("*******HANDEL.message*******")
+        // log.Println(" ")
         cmdOut :=make(chan *message.Response,5)
         cmdIn := make(chan *message.Cmd)
         go PubishServer(cmdIn,cmdOut)
@@ -122,7 +140,7 @@ func main() {
         loop: for {
                     select{
                     case data := <-cmdOut:
-                        log.Println(data)
+                        // log.Println(data)
                         c.JSON(200,gin.H{
                             "message":data.Msg,
                         })
@@ -262,9 +280,9 @@ func PubishServer(cmdIn chan *message.Cmd,cmdOut chan *message.Response) {
                                 channel := &pb.Channel{Name: clientId,Topic: newTopic}
                                 signal <-channel
                                 go func (cmdInput *message.Cmd,cmdOut chan *message.Response) {
-                                    log.Printf("***%+v***\n",cmdInput)
+                                    // log.Printf("***%+v***\n",cmdInput)
                                     for responseMessage :=range response{
-                                        log.Printf("^^^^%+v^^^^^\n",cmdInput)
+                                        // log.Printf("^^^^%+v^^^^^\n",cmdInput)
                                         fmt.Println("-----接受端返回信息:-----\n"+responseMessage.Msg)
                                         cmdOut <- &message.Response {
                                             cmdInput,
@@ -307,7 +325,7 @@ func PubishServer(cmdIn chan *message.Cmd,cmdOut chan *message.Response) {
                                             Topic: &pb.Channel{Name: clientId,Topic: topic},
                                             Result: &pb.SubscribeResult{Msg: liveCmd,Type:2,Pause:cmdPause,Timestamp:timestamp},
                                         }
-                                log.Printf("%+v",sendcmd)
+                                // log.Printf("%+v",sendcmd)
                                 send <- sendcmd
 
                             }else{
@@ -341,7 +359,7 @@ func PubishServer(cmdIn chan *message.Cmd,cmdOut chan *message.Response) {
                                             Topic: &pb.Channel{Name: clientId,Topic: topic},
                                             Result: &pb.SubscribeResult{Msg:shotCmd,Type:3,Timestamp:timestamp},
                                         }
-                                log.Printf("%+v",sendcmd)
+                                // log.Printf("%+v",sendcmd)
                                 send <- sendcmd
 
                             }else{
@@ -352,13 +370,12 @@ func PubishServer(cmdIn chan *message.Cmd,cmdOut chan *message.Response) {
                             }
                         }
                         case "4":{
-                            log.Println("CASE 4 .....")
+                            // log.Println("CASE 4 .....")
                             if ms ,ok := cmdInput.Message.(message.Msg_4);ok {
                                 offer := ms.Offer
                                 timestamp := ms.Timestamp
                                 newTopic :=fmt.Sprintf("%s_%d",topic,timestamp)
                                 channel := &pb.Channel{Name: clientId,Topic: newTopic}
-
                                 signal <-channel
                                 go func (cmdInput *message.Cmd,cmdOut chan *message.Response) {
                                     // log.Printf("***%+v***\n",cmdInput)
@@ -366,12 +383,12 @@ func PubishServer(cmdIn chan *message.Cmd,cmdOut chan *message.Response) {
                                         if responseMessage == nil {
                                             continue
                                         }
-                                        log.Printf("^^^^%+v^^^^^\n",responseMessage)//为什么这两处cmdinput不相等
+                                        // log.Printf("^^^^%+v^^^^^\n",responseMessage)//为什么这两处cmdinput不相等
                                         cmdOut <- &message.Response{
                                             cmdInput,
                                             responseMessage.Msg,
                                         } 
-                                        fmt.Printf("-----接受端返回信息:%d-----\n",len(responseMessage.Msg))
+                                        // fmt.Printf("-----接受端返回信息:%d-----\n",len(responseMessage.Msg))
                                     }
                                 }(cmdInput,cmdOut)
                                 sendcmd := &pb.PulishMessage{
@@ -397,7 +414,7 @@ func PubishServer(cmdIn chan *message.Cmd,cmdOut chan *message.Response) {
         }() 
         <-reconnect 
         time.Sleep(5*time.Second)
-        log.Println("reconnect**")
+        log.Println("reconnect...")
     }
 }
 //发布内容
@@ -490,9 +507,6 @@ func parse(c *gin.Context) (*message.Cmd,error){
     clientId := c.PostForm("id")
     topic := c.PostForm("topic")
     category := c.PostForm("type")
-    // log.Println(clientId)
-    // log.Println(topic)
-    // log.Println(category)
     if clientId==""||topic==""||(category!="1"&&category!="2"&&category!="3"&&category!="4"&&category!="5") {
         return nil,errors.New("paraments is wrong")
     }
@@ -548,4 +562,200 @@ func parse(c *gin.Context) (*message.Cmd,error){
         Message:ms,
     }
     return cmdms,nil
+}
+func webrtcConn(clientId,topic,category ,httpPort string){
+    var picUpPercent =make(chan float32)
+    var reconnected =make(chan bool)
+    go func(){
+        for percent :=range picUpPercent{
+            fmt.Println(percent)
+        }
+    }()
+ 
+    for {
+        
+        peerConnection, err := webrtc.NewPeerConnection(webrtc.Configuration{
+            ICEServers: []webrtc.ICEServer{
+                {
+                    // URLs: []string{"stun:stun.l.google.com:19302"},
+                    URLs: []string{"stun:47.99.78.179:3478"},
+                },
+            },
+        })
+        if err != nil {
+            panic(err)
+        }
+        // Create an offer to send to the browser
+        offer, err := peerConnection.CreateOffer(nil)
+        if err != nil {
+            panic(err)
+        }
+        // Sets the LocalDescription, and starts our UDP listeners
+        err = peerConnection.SetLocalDescription(offer)
+        if err != nil {
+            panic(err)
+        }
+        offerBase64 ,err:=s.Encode(offer) 
+        if err != nil {
+            panic(err)
+        }
+        // Exchange the offer for the answer
+        ms := message.NewMsg_4(offerBase64)
+        cmdms := &message.Cmd{
+            ClientId:clientId,
+            Topic:topic,
+            Type:category,
+            Message:ms,
+        }
+        info ,_:= cronutil.HttpPost(cmdms,httpPort)
+        type codemessage struct{
+            Message string
+        }
+        infoParse := codemessage{}
+        err = json.Unmarshal([]byte(info), &infoParse)
+        if err!=nil{
+            fmt.Println(err)
+        }
+        answerBase64 :=strings.Split(infoParse.Message,":")[1]
+        //除去空白,解析出的字符串前面多了个空白？
+        answerBase64 =strings.TrimSpace(answerBase64)
+        answerJson := webrtc.SessionDescription{}
+        s.Decode(answerBase64,&answerJson)
+        // Apply the answer as the remote description
+        err = peerConnection.SetRemoteDescription(answerJson)
+        if err != nil {
+            panic(err)
+        }
+        // go func(){
+            peerConnection.OnDataChannel(func(dc *webrtc.DataChannel){
+                if dc.Label()=="shot"{
+                    var filesize int=0
+                    var fileBuffer []byte
+                    isfirst := true
+                    dc.OnMessage(func(dm webrtc.DataChannelMessage){
+                        if isfirst{
+                            fm := message.FileMeta{}
+                            s.Decode(string(dm.Data),&fm)
+                            isfirst = false
+                            filesize =fm.FileSize
+                        }else{
+                            for {
+                                if len(fileBuffer)>=filesize {
+                                    isfirst=true
+                                    reader := bytes.NewReader(fileBuffer)
+                                    img, _:= png.Decode(reader)
+                                    f, _ := os.Create("reback.png")     //创建文件
+                                    defer f.Close()                   //关闭文件
+                                    png.Encode(f,img) 
+                                    // exec.Command("rundll32.exe", "url.dll,FileProtocolHandler", "test.jpg")
+                                    break
+                                }
+                                fileBuffer=append(fileBuffer,dm.Data...)
+                                percent :=float32(len(fileBuffer))/float32(filesize)
+                                // fmt.Println("+++",percent)
+                                picUpPercent <- percent
+                                
+                            } 
+                        }
+
+                        
+                    }) 
+                }
+           
+            })
+
+        // }()
+
+        go func(){
+
+            state :=peerConnection.ConnectionState().String()
+            if state == "new"{
+                fmt.Println("=================================p2p connected=================================")
+                ctlchannel ,err:=peerConnection.CreateDataChannel("control",nil)
+                if err !=nil{
+                    fmt .Println(err)
+                }
+    
+                for{
+                   if ctlchannel.ReadyState().String()=="open" {
+                        // fmt.Println(".....................指令操作.....................")
+                        var cmdint string
+                        var ms message.Cmd
+                        fmt.Print("输入操作指令对应数字(1表示播放音乐；3表示截图):")
+                        fmt.Println("")
+                        fmt.Scanln(&cmdint)
+                        timeflag :=time.Now().Unix()
+                        switch cmdint{
+                        case "1":
+                            fmt.Println("---------------------播放MP3音乐--------------------")
+                            var soundUrl,loop string
+                            fmt.Print("播放地址默认(./Lame_Drivers_-_01_-_Frozen_Egg):")
+                            fmt.Scanln(&cmdint)
+                            fmt.Print("循环播放次数(默认1):")
+                            fmt.Scanln(&loop)
+                            fmt.Println("")
+                            var loopNum =1
+                            if loopNum,err = strconv.Atoi(loop) ;err != nil {
+                                loopNum =1
+                            }
+                            if loopNum <=0{
+                                loopNum =1
+                            }
+                            if soundUrl==""{
+                                soundUrl ="./Lame_Drivers_-_01_-_Frozen_Egg"
+                            }
+                            ms = message.Cmd{
+                                ClientId:clientId,
+                                Topic:topic,
+                                Type:"1",
+                                Message:message.Msg_1{
+                                  LoopNum:loopNum,
+                                  Uri:soundUrl,
+                                  Timestamp:timeflag,
+                                },
+                            }
+                            msBase64,_:= s.Encode(ms)
+                            ctlchannel.SendText(msBase64)
+                        case "3":
+                            fmt.Println("---------------------截图--------------------")
+                            var shotUrl string
+                            fmt.Print("截图地址默认(截屏):")
+                            fmt.Scanln(&shotUrl)
+                            fmt.Println("")
+                            if shotUrl==""{
+                                shotUrl ="screen"
+                            }
+                            ms = message.Cmd{
+                                ClientId:clientId,
+                                Topic:topic,
+                                Type:"3",
+                                Message:message.Msg_3{
+                                  ShotCmd:shotUrl,
+                                  Timestamp:timeflag,
+                                },
+                            }
+                            msBase64,_:= s.Encode(ms)
+                            ctlchannel.SendText(msBase64)
+                        }
+                        // go func(){
+                        //     select {
+                        //         case percent:=<-picUpPercent:
+                        //             fmt.Println(percent)
+                        //     }
+                        // }()
+
+                    } 
+                }
+              
+            }else{
+               reconnected<-true
+            }
+
+        }()
+        time.Sleep(5*time.Second)
+        <-reconnected
+        fmt.Println("reconnect..")
+        // select{}
+    }
+
 }

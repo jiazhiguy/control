@@ -33,7 +33,7 @@ func initBoltdb() error{
     Db, err := storm.Open("my.db")
     go func (){
         for data :=range Datachan {
-            log.Printf("%T",data)
+            // log.Printf("%T",data)
             if dataPicture,ok := data.(Picture) ; ok{
                 if Db !=nil{
                     // log.Println ("Save  ") 
