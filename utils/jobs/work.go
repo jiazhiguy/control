@@ -8,6 +8,12 @@ import (
     "context"
 	// "image/jpeg"
 	"image/png"
+    "net/http"
+    "io/ioutil"
+    "mime/multipart"
+    "bytes"
+    "time"
+
 	"github.com/vova616/screenshot"
     "grpc-demo/utils/play"
 	"grpc-demo/utils/cmd"
@@ -16,6 +22,11 @@ type Context struct {
     Ctx  context.Context
     Cancel context.CancelFunc
 }
+var (
+    HttpClient = &http.Client{
+        Timeout: 3 * time.Second,
+    }
+)
 func Shot(cmdline string ,savepath,savename string,done chan bool,errorCh chan error)  {
 	log.Println("shot")
     if cmdline == ""{
@@ -26,7 +37,7 @@ func Shot(cmdline string ,savepath,savename string,done chan bool,errorCh chan e
     localfilePath := savepath+"/"+savename
     if cmdline=="screen" {//截屏
         go func(done chan bool){
-            errorCh <- errors.New("shot picture Start...")
+            // errorCh <- errors.New("shot picture Start...")
             img, err := screenshot.CaptureScreen()
             if err != nil {
                errorCh<-err
@@ -41,16 +52,13 @@ func Shot(cmdline string ,savepath,savename string,done chan bool,errorCh chan e
             }
             f.Close()
             done <- true
-
-            // log.Println("screenshot")
         }(done)
     }else{//调用ffmpeg进行截图
         newcmd :=cmdline +" "+ localfilePath
         go func(newcmd string){
-            // log.Println(newcmd)
             cmd := cmd.New(newcmd)
             cmd.Done=done
-            errorCh <- errors.New("shot picture Start...")
+            // errorCh <- errors.New("shot picture Start...")
             err := cmd.Run()
             if err != nil {
                 fmt.Println(err)
@@ -59,8 +67,8 @@ func Shot(cmdline string ,savepath,savename string,done chan bool,errorCh chan e
         }(newcmd)
     }
     <-done
-    errorCh <-errors.New("shot picture end...")
-    log.Println("Done")
+    // errorCh <-errors.New("shot picture end...")
+    // log.Println("Done")
     return
     //截图完成上传值minio服务器
     // select {
@@ -105,4 +113,39 @@ func Sound(path string,loop int,upContent Context,errorCh chan error) {
         upContent=Context{_ctx,_cancel}
     }
     errorCh <- errors.New("play sound Start...")
+}
+
+func UploadFile(url string, params map[string]string, nameField, fileName string, fileData []byte) ([]byte, error) {
+    body := new(bytes.Buffer)
+    body_writer := multipart.NewWriter(body)
+    //写入文件
+    formFile, err := body_writer.CreateFormFile(nameField, fileName)
+    if err != nil {
+        return nil, err
+    }
+    formFile.Write(fileData)
+    // 其他参数列表写入body
+    for key, val := range params {
+        _ = body_writer.WriteField(key, val)
+    }
+    err = body_writer.Close()
+    if err != nil {
+        return nil, err
+    }
+    req, err := http.NewRequest("POST", url, body)
+    if err != nil {
+        return nil, err
+    }
+    req.Header.Set("Content-Type", body_writer.FormDataContentType())
+    req.Header.Add("X-No-Sign","yes")
+    resp, err := HttpClient.Do(req)
+    if err != nil {
+        return nil, err
+    }
+    defer resp.Body.Close()
+    content, err := ioutil.ReadAll(resp.Body)
+    if err != nil {
+        return nil, err
+    }
+    return content, nil
 }
