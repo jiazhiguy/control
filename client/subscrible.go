@@ -378,6 +378,7 @@ func shotWork(v Unit,c chan *pb.PulishMessage) {
         //生成本地文件保存路径
         // parentPath:=initPath[:strings.LastIndex(initPath, "/")]
         shotCmd := v.Msg
+        rs_shotCmd := v.Msg
         time_now := time.Now()
         year, month, day := time.Now().Date()
         fileName := fmt.Sprintf("%d_%d_%d",year,month,day)
@@ -418,6 +419,7 @@ func shotWork(v Unit,c chan *pb.PulishMessage) {
                                 return
                             }
                             //缩略图保存到数据库
+                    
                             img_thumbnail := myutil.ImgResize(imageBytes)
                             buf := new(bytes.Buffer)
                             err = png.Encode(buf, img_thumbnail)
@@ -427,7 +429,7 @@ func shotWork(v Unit,c chan *pb.PulishMessage) {
                             img_thumbnail_byte := buf.Bytes()
                             imageBytes = img_thumbnail_byte
                             save := models.Picture{
-                                Name:shotCmd,
+                                Name:rs_shotCmd,
                                 Data:imageBytes,
                                 CreatedAt: time_now,
                             }
@@ -441,7 +443,7 @@ func shotWork(v Unit,c chan *pb.PulishMessage) {
                             // fmt.Println(string(rsp))
                             // 返回给客户端
                             // sourcestring := base64.StdEncoding.EncodeToString(savename)
-                            errorCh <- errors.New(fileName+"/"+subfileName+"/"+savename)
+                            errorCh <- errors.New(rs_shotCmd+"%"+fileName+"/"+subfileName+"/"+savename)
                             break loop
                             return
                         case <-time.After(30*time.Second):
