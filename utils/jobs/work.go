@@ -30,16 +30,23 @@ func Shot(cmdline string ,savepath,savename string,done chan bool,errorCh chan e
             img, err := screenshot.CaptureScreen()
             if err != nil {
                errorCh<-err
+               return
             }
             f, err := os.Create(localfilePath)
+            defer f.Close()
             if err != nil {
                 fmt.Println(err)
+                errorCh<-err
+                return
             }
             err = png.Encode(f,img)
             if err != nil {
+
                 fmt.Println(err)
+                errorCh<-err
+                return
             }
-            f.Close()
+            
             done <- true
 
             // log.Println("screenshot")
