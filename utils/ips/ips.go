@@ -23,14 +23,13 @@ func GetMacAddrs() (macAddrs []string) {
     return macAddrs
 }
 
-func GetIPs() (ips []string) {
-
+func GetIPs() ([]string ,error) {
+    var ips []string
     interfaceAddr, err := net.InterfaceAddrs()
     if err != nil {
         fmt.Printf("fail to get net interface addrs: %v", err)
-        return ips
+        return []string{},err
     }
-
     for _, address := range interfaceAddr {
         ipNet, isValidIpNet := address.(*net.IPNet)
         if isValidIpNet && !ipNet.IP.IsLoopback() {
@@ -39,5 +38,5 @@ func GetIPs() (ips []string) {
             }
         }
     }
-    return ips
+    return ips,nil
 }

@@ -87,10 +87,15 @@ func main() {
         serverIp = localServerIp
         fmt.Println("------------------------本地服务器模式------------------------")
         fmt.Println("")
-        ipAdrress := ips.GetIPs()
-        if ipAdrress[0] !=""{
+        ipAdrress ,_:= ips.GetIPs()
+        webAddress := ""
+        if len(ipAdrress)==0 {
+            webAddress = "http://localhost"+":"+webPort
+        }else{
+            webAddress = "http://"+ipAdrress[0]+":"+webPort
         }
-        RenderStringQr("http://"+ipAdrress[0]+":"+webPort)
+        fmt.Println("开启web服务器后可通过 "+webAddress +"访问")
+        RenderStringQr(webAddress)
     }else{
         s := strings.Split(serverIp,"@")
         fmt.Printf(s[0])
