@@ -15,6 +15,7 @@ import (
     "bytes"
     "flag"
     "os/exec"
+    "regexp"
 
     myutil "grpc-demo/utils/my_utils"
     job "grpc-demo/utils/jobs"
@@ -44,65 +45,80 @@ type Map struct {
     Unit map[string]context.CancelFunc
 }
 func main() {
-    var serverIp ,randomTag string
+    var serverIp ,randomTag,webPort string
     var clientId,topic string
-    const remoteServerIp = "47.99.78.179:8123"
+    const initRemoteServerIp = "47.99.78.179:8123"
+    const initWebPort = "9090"
     const localServerIp = "127.0.0.1:8123"
-    // sdpchan := make (chan string)
-    // answerchan := make (chan string)
-    // signal := make (chan Unit)
-    // reback := make (chan *pb.PulishMessage)
-    // grpc客户端 完成交互信号的接受和处理
-    // const serverIp ="localhost:8123"
-    // const serverIp = "47.99.78.179:8123"
-    flag.StringVar(&serverIp, "s", "local", "服务器地址默认为局域网内服务器（外网服务器，参数-s 设置为remote）")
-    flag.StringVar(&randomTag, "t", "random", "id 和topic随机生成（自定义，参数-t 设置为custom）")
+    flag.StringVar(&serverIp, "s", "local", "默认服务器地址为局域网内服务器（外网服务器，参数-s 设置为remote@serverIp）")
+    flag.StringVar(&randomTag, "t", "random", "默认id和topic随机生成（自定义，参数-t 设置为[id:topic],id和topic均为4-6位字母数字组成）")
+    flag.StringVar(&webPort, "p", initWebPort, "默认Web网页端口 9090")
     flag.Parse()
     fmt.Println("**1.消息发布端和接收端设备ID和主题填写一致**")
     fmt.Println("**2.先开启接受端填写参数，再通过发布端发布指令**")
-    fmt.Println("**3.发布端地址MP3地址可以是url,也可以是本地MP3,本地文件和接受端放在一起,地址为 ./文件名**")
-  
-    if randomTag == "custom"{
-        fmt.Print("自定义设备ID:")
-        fmt.Scanln(&clientId)
-        fmt.Print("自定义主题:")
-        fmt.Scanln(&topic)
-    }else{
+    fmt.Println("**3.发布端地址MP3地址可是url,也可为本地MP3（该文件和接受端放在一起,地址为 ./文件名）**")
+    fmt.Println("")
+    isMatch,_ :=regexp.MatchString(`[\d]+`,webPort)
+    if !isMatch {
+        fmt.Println("参数错误（参数：-p 格式:xxxx ,xxxx为数字）")
+        return
+    }
+    if randomTag == "random"{
         salt := "random"
         stamp :=int(time.Now().Unix())
         randomHash,_ :=util.Hash(strconv.Itoa(stamp)+salt)
         fmt.Printf(randomHash)
         clientId = randomHash[0:6]
         topic = randomHash[len(randomHash)-6:]
+    }else{
+        r,_:=regexp.Compile(`\[[\w]{4,6}:[\w]{4,6}\]`)
+        isMatch:=r.MatchString(randomTag)
+        if isMatch {
+            fmt.Println(randomTag)
+            s := strings.Split(randomTag,":")
+            clientId = s[0][1:]
+            topic = s[1][:len(s[1])-1]
+        }else{
+            fmt.Println("参数错误（参数：-t 格式：[id:topic],id和topic均为4-6位字母数字组成）")
+            return
+        }
     }
-    if serverIp == "remote"{
-        serverIp = remoteServerIp
-        fmt.Println("------------------------远程服务器模式------------------------")
-        fmt.Println("")
-        RenderStringQr("http://47.99.78.179:9090")
-     }
     if serverIp == "local"{
         serverIp = localServerIp
         fmt.Println("------------------------本地服务器模式------------------------")
         fmt.Println("")
         ipAdrress := ips.GetIPs()
         if ipAdrress[0] !=""{
-
         }
-        RenderStringQr("http://"+ipAdrress[0]+":9090")
-
+        RenderStringQr("http://"+ipAdrress[0]+":"+webPort)
+    }else{
+        s := strings.Split(serverIp,"@")
+        fmt.Printf(s[0])
+        if s[0] == "remote"{
+            if len(s) ==1 {
+                serverIp =  initRemoteServerIp
+            }
+            if len(s)==2{           
+                isMatch:=IsIP(s[1])
+                if isMatch {
+                    serverIp = s[1]
+                }else{
+                    fmt.Println("serverIp 格式为 xxxx.xxxx.xxxx.xxxx:xxxx")
+                    return
+                }
+            }
+            fmt.Println("------------------------远程服务器模式------------------------")
+            RenderStringQr(strings.Split(serverIp,":")[0]+":"+webPort)
+        }else{
+            fmt.Println("参数错误（参数：-s 格式：remote|serverIp")
+            return
+        }
     }
-    
     var cmdCancleMap=Map{
         new(sync.Mutex),
         make(map[string]context.CancelFunc),
     }
-    // var cmdCancleMap = make(map[string]context.CancelFunc)
-    // var syncLock sync.RWMutex
-    // ctx, cancel := context.WithTimeout(context.TODO(), time.Second*3)
-    // defer cancel()
-    // conn, err := grpc.DialContext(ctx, serverIp, grpc.WithBlock(), grpc.WithInsecure())
-    var kacp = keepalive.ClientParameters{
+        var kacp = keepalive.ClientParameters{
         Time:                10 * time.Second, // send pings every 10 seconds if there is no activity
         Timeout:             20*time.Second,      // wait 1 second for ping ack before considering the connection dead
         PermitWithoutStream: true,             // send pings even without active streams
@@ -116,23 +132,17 @@ func main() {
         go webrtcserver.Run(sdpchan,answerchan,reback)//开启webrtc服务端
         log.Println("-----Start grpc Client-----")
         conn, err := grpc.Dial(serverIp, grpc.WithInsecure(), grpc.WithKeepaliveParams(kacp))
-        // conn, err := grpc.Dial(serverIp, grpc.WithInsecure())
-
         if err != nil {
              log.Println(err)
              defer conn.Close()
              reconnect <-true
-            // log.Fatal(err)
         }
         
         client := pb.NewPubsubServiceClient(conn)
         fmt.Println("===============消息指令接受端==============="+"[设备ID:"+clientId+" 主题:"+topic+"]")
      
         upContent :=Context{}
-        // path := "../Lame_Drivers_-_01_-_Frozen_Egg.mp3"http://47.99.78.179:9000/temp/095889a1aa6db7b345acf3cf5b20fcc9?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Credential=TEST%2F20200213%2Fus-east-1%2Fs3%2Faws4_request&X-Amz-Date=20200213T124322Z&X-Amz-Expires=6000&X-Amz-SignedHeaders=host&response-content-disposition=attachment%3B%20filename%3D095889a1aa6db7b345acf3cf5b20fcc9&X-Amz-Signature=7b82622a43727855d0da46cc6504a0079af4b6270d7784182c5504d81efd500c
-        // path := "http://47.99.78.179:9000/temp/095889a1aa6db7b345acf3cf5b20fcc9?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Credential=TEST%2F20200214%2Fus-east-1%2Fs3%2Faws4_request&X-Amz-Date=20200214T021216Z&X-Amz-Expires=6000&X-Amz-SignedHeaders=host&response-content-disposition=attachment%3B%20filename%3D095889a1aa6db7b345acf3cf5b20fcc9&X-Amz-Signature=d705ce908ed8d8ccee430aae0129b5d3ee1b2b87bce54e31589d450fd2c12155"
-        // option := media.Option{LoopNum:1,Fast:1,Pause:false,Volume:0}
-        
+
     // for {
         //处理订阅消息go
         go func(){
@@ -198,12 +208,10 @@ func  GetChanneklList(client pb.PubsubServiceClient, agent *pb.Channel , c chan 
         reply, err := stream.Recv()
         if err != nil {
             if err == io.EOF {
-                // close(c)
                 break
             }
             log.Println(err)
             return err
-            // log.Fatal(err)
         }
         c <- reply
     }
@@ -231,13 +239,11 @@ func  Subscribe(client pb.PubsubServiceClient,channel *pb.Channel,c chan *pb.Sub
                 log.Println(err)
                 ch<-err
                 return 
-                // log.Fatal(err)
             }
             c<-reply
         }
     }(errChan)
     return <-errChan
-    // return nil
 }
 //发布内容
 func  Publish(client pb.PubsubServiceClient,msg  *pb.PulishMessage){
@@ -529,3 +535,11 @@ func RenderStringQr(s string) {
     cmd:=exec.Command("rundll32.exe", "url.dll,FileProtocolHandler", "qr.png")
     cmd.Start()
 }
+func IsIP(ip string)(b bool){
+    m,_ :=regexp.MatchString(`^[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}:[\d]+$`,ip)
+    if !m { 
+        return false 
+    }else{ 
+        return true 
+    } 
+ }

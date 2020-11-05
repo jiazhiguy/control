@@ -14,6 +14,7 @@ import (
     "os"
     "errors"
     "flag"
+    "regexp"
 
     message "grpc-demo/utils/message"
     gin "github.com/gin-gonic/gin"
@@ -23,46 +24,62 @@ import (
     "gopkg.in/tylerb/graceful.v1"
     "github.com/robfig/cron"
     "grpc-demo/utils/cron"
-    // "grpc-demo/utils"
-    // "github.com/zserge/webview"
+    "grpc-demo/utils/ips"
  
 )
 // 
 //ffmpeg |_|-i|_|rtsp://admin:admin123@192.168.2.241/h264/ch1/main/av_stream|_|-vframes|_|1|_|-y|_|-f|_|image2
 //ffmpeg|_|-re|_|-i|_|rtsp://admin:admin123@192.168.2.241/h264/ch1/main/av_stream|_|-c|_|copy|_|-f|_|flv|_|rtmp://47.99.78.179:1935/live/movie
 var cronHub *cron.Cron
-var serverIp string
+var serverIp, webPort string
 func main() {
-    flag.StringVar(&serverIp, "s", "local", "服务器地址默认为局域网内服务器（外网服务器，参数-s 设置为remote）")
-    flag.Parse()
-    const remoteServerIp = "47.99.78.179:8123"
+    const initWebPort = "9090"
+    const initRemoteServerIp = "47.99.78.179:8123"
     const localServerIp = "127.0.0.1:8123"
-    if serverIp == "remote"{
-        serverIp = remoteServerIp
-        fmt.Println("------------------------远程服务器模式------------------------")
-        fmt.Println("")
-     }
-     if serverIp == "local"{
+    flag.StringVar(&serverIp, "s", "local", "默认服务器地址为局域网内服务器（外网服务器，参数-s 设置为remote@serverIp）")
+    flag.StringVar(&webPort, "p", initWebPort, "默认Web网页端口 9090")
+    flag.Parse()
+    isMatch,_ :=regexp.MatchString(`[\d]+`,webPort)
+    if !isMatch {
+        fmt.Println("参数错误（参数：-p 格式:xxxx ,xxxx为数字）")
+        return
+    }
+    if serverIp == "local"{
         serverIp = localServerIp
         fmt.Println("------------------------本地服务器模式------------------------")
         fmt.Println("")
+        ipAdrress := ips.GetIPs()
+        if ipAdrress[0] !=""{}
+       
+    }else{
+        s := strings.Split(serverIp,"@")
+        fmt.Printf(s[0])
+        if s[0] == "remote"{
+            if len(s) ==1 {
+                serverIp =  initRemoteServerIp
+            }
+            if len(s)==2{           
+                isMatch:=IsIP(s[1])
+                if isMatch {
+                    serverIp = s[1]
+                }else{
+                    fmt.Println("serverIp 格式为 xxxx.xxxx.xxxx.xxxx:xxxx")
+                    return
+                }
+            }
+            fmt.Println("------------------------远程服务器模式------------------------")
+        }else{
+            fmt.Println("参数错误（参数：-s 格式：remote|serverIp")
+            return
+        }
     }
-    const httpPort = ":9090"
     cronHub = cron.New()
     cronHub.Start() 
-    // go func () {
-    //     cronHub.Start() 
-    //     select{}
-    // }()
-    // gin.SetMode(gin.ReleaseMode)
     router := gin.Default()
     router.Use(Cors())
     router.Static("/static","dist/static")   // 添加资源路径
     router.StaticFS("/down", http.Dir("./tmp"))
     router.StaticFile("/", "./dist/index.html")  //前端接口
-    // cmdOut :=make(chan *message.Response,5)
-    // cmdIn := make(chan *message.Cmd)
-    // go PubishServer(cmdIn,cmdOut)
     router.POST("/cron", func(c *gin.Context) {
         tip := c.PostForm("tip")
         if tip == ""{
@@ -71,9 +88,7 @@ func main() {
             })
             return
         }
-        log.Printf("tip:%s",tip)
         cmdms,err :=parse(c)
-        log.Printf("cmdms1:%+v\n",cmdms)
         if err != nil{
             c.JSON(200,gin.H{
                 "message":err.Error(),
@@ -81,12 +96,10 @@ func main() {
             log.Println(err)
             return 
         }
-        log.Printf("cmdms2:%+v\n",cmdms)
         err = cronHub.AddFunc(tip,func(){
-            cronutil.HttpPost(cmdms,httpPort)
+            cronutil.HttpPost(cmdms,":"+webPort)
         })
-        if err != nil { 
-            log.Println(err)           
+        if err != nil {       
             c.JSON(200,gin.H{
                 "message":"add cron fail",
             })
@@ -105,7 +118,6 @@ func main() {
         go PubishServer(cmdIn,cmdOut)
         var cmdms *message.Cmd
         cmdms,err := parse(c)
-        // log.Printf("^^^%+v",c)
         if err !=nil {
             c.JSON(200,gin.H{
                 "message":err.Error(),
@@ -130,68 +142,19 @@ func main() {
                         return
                 }
             }
-        // }()
-        // loop:
-        // for {
-        //     select{
-        //         case data :=<-cmdOut:{
-        //             log.Println(data.Cmdmessage == cmdms)
-        //             //     for  {
-        //                     // if (data==Response{}){
-        //                     //     continue
-        //                     // }
-        //                     log.Println("^^^^^^^^^^from clint^^^^^^^^\n")
-        //                     // if data.cmdmessage == cmdms&&c!=nil{
-        //                         c.JSON(200,gin.H{
-        //                             "message":data.Msg,
-        //                         })
-        //                         // break//for中只能发送1次，连续发送报错？？
-        //                     // }
-        //             //     }
-        //             //     return   
-        //             // }()
-                    
-        //             break loop
-        //             return
-        //         }
-        //         // case <-time.After(10*time.Second):{
-        //         //     log.Println("timeout")
-        //         //     if c!=nil{
-        //         //         c.JSON(200,gin.H{
-        //         //             "message":"timeout/device offline",
-        //         //         })
-        //         //         // break loop
-        //         //         return
-        //         //     }
-
-
-        //         // }
-        //     }
-        //     }
     })
     fmt.Println("")
     fmt.Println("-----------使用方法----------")
     fmt.Println("")
     fmt.Println("使用Google Chrome浏览器,打开网页 http://localhost:9090/")
-    // server := &http.Server{
-    //     Addr:           ":9090",
-    //     Handler:        router,
-    //     // ReadTimeout:    10 * time.Second,
-    //     // WriteTimeout:   10 * time.Second,
-    //     // MaxHeaderBytes: 1 << 20,
-    // }
-    // gracefulExitWeb(server)
-    graceful.Run(httpPort,10*time.Second,router)
-    // router.Run(":9090")
+    graceful.Run(":"+webPort,10*time.Second,router)
 }
 func PubishServer(cmdIn chan *message.Cmd,cmdOut chan *message.Response) {
 
     fmt.Println("**1.消息发布端和接收端设备ID和主题填写一致**")
     fmt.Println("**2.先开启接受端填写参数，再通过发布端发布指令**")
-    fmt.Println("**3.发布端地址MP3地址可以是url,也可以是本地MP3,本地文件和接受端放在一起,地址为 ./文件名**")
-    // const serverIp ="localhost:8123"
-    //********************connect*********************
-    // const serverIp ="47.99.78.179:8123"
+    fmt.Println("**3.发布端地址MP3地址可是url,也可为本地MP3（该文件和接受端放在一起,地址为 ./文件名）**")
+    fmt.Println("")
     // cmdline := "ffmpeg -re -i D:/21.mp4 -c copy -f flv rtmp://localhost:1935/live/movie"
     var kacp = keepalive.ClientParameters{
         Time:                10 * time.Second, // send pings every 10 seconds if there is no activity
@@ -201,11 +164,9 @@ func PubishServer(cmdIn chan *message.Cmd,cmdOut chan *message.Response) {
     reconnect := make (chan bool)
     for {
         conn, err := grpc.Dial(serverIp, grpc.WithInsecure(), grpc.WithKeepaliveParams(kacp))
-        // conn, err := grpc.Dial(serverIp, grpc.WithInsecure())
         if err != nil {
             defer conn.Close()
             reconnect <-true
-            // log.Fatal(err)
         }
         client := pb.NewPubsubServiceClient(conn)
         //******************* 发布和订阅内容处理***********************
@@ -218,7 +179,6 @@ func PubishServer(cmdIn chan *message.Cmd,cmdOut chan *message.Response) {
             for {
                 select{
                 case v :=<-signal:
-                    // fmt.Println(v)
                     err := Subscribe(client,v,response)
                     if err != nil{
                         reconnect <- true
@@ -254,6 +214,7 @@ func PubishServer(cmdIn chan *message.Cmd,cmdOut chan *message.Response) {
                     optype :=cmdInput.Type
                     switch optype{
                         case "1":{
+                            log.Println("CASE 1 .....")
                             if ms ,ok := cmdInput.Message.(message.Msg_1);ok{
                                 path := ms.Uri
                                 loop := ms.LoopNum
@@ -264,7 +225,6 @@ func PubishServer(cmdIn chan *message.Cmd,cmdOut chan *message.Response) {
                                 go func (cmdInput *message.Cmd,cmdOut chan *message.Response) {
                                     log.Printf("***%+v***\n",cmdInput)
                                     for responseMessage :=range response{
-                                        log.Printf("^^^^%+v^^^^^\n",cmdInput)
                                         fmt.Println("-----接受端返回信息:-----\n"+responseMessage.Msg)
                                         cmdOut <- &message.Response {
                                             cmdInput,
@@ -284,6 +244,7 @@ func PubishServer(cmdIn chan *message.Cmd,cmdOut chan *message.Response) {
                             }
                         }
                         case "2":{
+                            log.Println("CASE 2 .....")
                             if ms ,ok := cmdInput.Message.(message.Msg_2);ok {
                                 cmdPause := ms.Operate
                                 timestamp := ms.Timestamp
@@ -293,7 +254,6 @@ func PubishServer(cmdIn chan *message.Cmd,cmdOut chan *message.Response) {
 
                                 signal <-channel
                                 go func (cmdInput *message.Cmd,cmdOut chan *message.Response) {
-                                    // log.Printf("***%+v***\n",cmdInput)
                                     for responseMessage :=range response{
                                         // log.Printf("^^^^%+v^^^^^\n",cmdInput)//为什么这两处cmdinput不相等
                                         fmt.Println("-----接受端返回信息:-----\n"+responseMessage.Msg)
@@ -307,7 +267,6 @@ func PubishServer(cmdIn chan *message.Cmd,cmdOut chan *message.Response) {
                                             Topic: &pb.Channel{Name: clientId,Topic: topic},
                                             Result: &pb.SubscribeResult{Msg: liveCmd,Type:2,Pause:cmdPause,Timestamp:timestamp},
                                         }
-                                log.Printf("%+v",sendcmd)
                                 send <- sendcmd
 
                             }else{
@@ -318,18 +277,16 @@ func PubishServer(cmdIn chan *message.Cmd,cmdOut chan *message.Response) {
                             }
                         }
                         case "3":{
+                            log.Println("CASE 3 .....")
                             if ms ,ok := cmdInput.Message.(message.Msg_3);ok {
                                 shotCmd := ms.ShotCmd
                                 timestamp := ms.Timestamp
-                                // path := ms.Uri
                                 newTopic :=fmt.Sprintf("%s_%d",topic,timestamp)
                                 channel := &pb.Channel{Name: clientId,Topic: newTopic}
-
                                 signal <-channel
                                 go func (cmdInput *message.Cmd,cmdOut chan *message.Response) {
-                                    // log.Printf("***%+v***\n",cmdInput)
                                     for responseMessage :=range response{
-                                        // log.Printf("^^^^%+v^^^^^\n",cmdInput)//为什么这两处cmdinput不相等
+                                       
                                         fmt.Println("-----接受端返回信息:-----\n"+responseMessage.Msg)
                                         cmdOut <- &message.Response{
                                             cmdInput,
@@ -361,12 +318,10 @@ func PubishServer(cmdIn chan *message.Cmd,cmdOut chan *message.Response) {
 
                                 signal <-channel
                                 go func (cmdInput *message.Cmd,cmdOut chan *message.Response) {
-                                    // log.Printf("***%+v***\n",cmdInput)
                                     for responseMessage :=range response{
                                         if responseMessage == nil {
                                             continue
                                         }
-                                        log.Printf("^^^^%+v^^^^^\n",responseMessage)//为什么这两处cmdinput不相等
                                         cmdOut <- &message.Response{
                                             cmdInput,
                                             responseMessage.Msg,
@@ -378,7 +333,6 @@ func PubishServer(cmdIn chan *message.Cmd,cmdOut chan *message.Response) {
                                             Topic: &pb.Channel{Name: clientId,Topic: topic},
                                             Result: &pb.SubscribeResult{Msg:offer,Type:4,Timestamp:timestamp},
                                         }
-                                // log.Printf("%+v",sendcmd)
                                 send <- sendcmd
 
                             }else{
@@ -397,7 +351,7 @@ func PubishServer(cmdIn chan *message.Cmd,cmdOut chan *message.Response) {
         }() 
         <-reconnect 
         time.Sleep(5*time.Second)
-        log.Println("reconnect**")
+        log.Println("reconnect ...")
     }
 }
 //发布内容
@@ -406,7 +360,6 @@ func  Publish(client pb.PubsubServiceClient,msg  *pb.PulishMessage) error {
     if err != nil {
         log.Println(err)
         return err
-        // log.Fatal(err)
     }
     return nil
 }
@@ -490,9 +443,6 @@ func parse(c *gin.Context) (*message.Cmd,error){
     clientId := c.PostForm("id")
     topic := c.PostForm("topic")
     category := c.PostForm("type")
-    // log.Println(clientId)
-    // log.Println(topic)
-    // log.Println(category)
     if clientId==""||topic==""||(category!="1"&&category!="2"&&category!="3"&&category!="4"&&category!="5") {
         return nil,errors.New("paraments is wrong")
     }
@@ -549,3 +499,11 @@ func parse(c *gin.Context) (*message.Cmd,error){
     }
     return cmdms,nil
 }
+func IsIP(ip string)(b bool){
+    m,_ :=regexp.MatchString(`^[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}:[\d]+$`,ip)
+    if !m { 
+        return false 
+    }else{ 
+        return true 
+    } 
+ }
