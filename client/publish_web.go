@@ -48,12 +48,13 @@ func main() {
         serverIp = localServerIp
         fmt.Println("------------------------本地服务器模式------------------------")
         fmt.Println("")
-        ipAdrress := ips.GetIPs()
-        if ipAdrress[0] !=""{}
+        ipAdrress , _:= ips.GetIPs()
+        if len(ipAdrress) == 0 {
+            fmt.Println("****")
+        }
        
     }else{
         s := strings.Split(serverIp,"@")
-        fmt.Printf(s[0])
         if s[0] == "remote"{
             if len(s) ==1 {
                 serverIp =  initRemoteServerIp

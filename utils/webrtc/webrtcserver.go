@@ -49,7 +49,7 @@ func Run (sdpChan,answerchan chan string,reback chan *pb.PulishMessage){
 				ICEServers: []webrtc.ICEServer{
 					{
 						// URLs: []string{"stun:stun.l.google.com:19302"},
-						URLs: []string{"stun:47.99.78.179:3478"},
+						URLs: []string{"stun:47.99.78.179:3478","stun:127.0.0.1:3478"},
 					},
 				},
 
